@@ -28,17 +28,22 @@
 #define BG_FREE 1
 
 
-int prompt(char *** ret,int retVal,int *redir,char **fileOut,char **fileIn,char **fileErr, int *wait){
+void prompt(int retVal){
+	char promptSeparator,hostname[40];
+	if(!getuid()) promptSeparator = '#'; else promptSeparator = '$';
+	gethostname(hostname,40);
+	printf("[%d] %s@%s:%s %c ",retVal,getenv("USER"),hostname,getenv("PWD"),promptSeparator);
+}
+
+int getcmd(char *** ret,int retVal,int *redir,char **fileOut,char **fileIn,char **fileErr, int *wait){
 	int argc,freeblocks;
-	char promptSeparator, *buf, **argv, hostname[40],pipe=0;
+	char *buf, **argv,pipe=0;
 
 	*wait = WAIT;
-	if(!getuid()) promptSeparator = '#'; else promptSeparator = '$';
 	argc = 0;
 	freeblocks = ARGS_SPACE;
 	argv = (char **)malloc(ARGS_SPACE*sizeof(char *));
-	gethostname(hostname,40);
-	printf("[%d] %s@%s:%s %c ",retVal,getenv("USER"),hostname,getenv("PWD"),promptSeparator);
+	prompt(retVal);
 	scanf("%ms",&buf);
 	argv[argc] = buf;
 	argc++;
@@ -138,7 +143,7 @@ int main(void){
 	printf("Welcome on DATShell! (Damn, Another Tiny Shell !).\n");
 	while(1){
 		processChildren(BG_NONEW);
-		argc = prompt(&argv,retVal,&redir,&fileOut,&fileIn,&fileErr,&wait);
+		argc = getcmd(&argv,retVal,&redir,&fileOut,&fileIn,&fileErr,&wait);
 		if(strcmp(argv[0],"exit") == 0){
 			printf("Exiting DatShell!\n");
 			freeArgs(argc,argv);
@@ -216,7 +221,7 @@ int main(void){
 
 									break;
 								default :
-
+									;
 							}
 							break;
 					}
