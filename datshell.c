@@ -9,9 +9,11 @@
 
 
 #define ARGS_SPACE 5
+
 #define FORK_FAILURE 1
 #define OPEN_FAILURE 2
 #define DUP_FAILURE 3
+#define PIPE_FAILURE 4
 #define EXEC_FAILURE -1
 
 #define REDIRECT_NONE 0
@@ -43,7 +45,7 @@ int getcmd(char *** ret,int retVal,int *redir,char **fileOut,char **fileIn,char 
 	argc = 0;
 	freeblocks = ARGS_SPACE;
 	argv = (char **)malloc(ARGS_SPACE*sizeof(char *));
-	prompt(retVal);
+	if(*redir != REDIRECT_PIPE) prompt(retVal);
 	scanf("%ms",&buf);
 	argv[argc] = buf;
 	argc++;
@@ -106,7 +108,7 @@ void processChildren(pid_t new){
 	static int freespace=5;
 	int i,son_status,pid;
 	if(array == NULL) array = (int *)malloc(5*sizeof(int));
-	
+
 	if(new == BG_FREE){
 		free(array);
 		return;
@@ -136,7 +138,7 @@ void processChildren(pid_t new){
 
 int main(void){ 
 	char **argv,*fileIn=NULL,*fileOut=NULL,*fileErr=NULL,cwd[BUFSIZ];
-	int argc, son_status, retVal=0,redir=REDIRECT_NONE,out=1,in=0,err=2,wait=WAIT,pipe;
+	int argc, son_status, retVal=0,redir=REDIRECT_NONE,out=1,in=0,err=2,wait=WAIT,tube[2];
 	pid_t pid;
 
 
@@ -211,27 +213,51 @@ int main(void){
 							}
 							break;
 						case REDIRECT_PIPE:
+							if(pipe(tube) == -1){
+								perror("Unable to create pipe ");
+								exit(PIPE_FAILURE);
+							}
 							switch(fork()){
 								case -1:
 									perror("Unable to fork !");
 									return FORK_FAILURE;
 									break;
 								case 0:
-									
+									close(tube[0]);
+									if(dup2(tube[1],STDOUT_FILENO) == -1){
+										perror("Unable to redirect ");
+										exit(DUP_FAILURE);
+									}
 
+									execvp(argv[0],argv);
+									fprintf(stderr,"ttsh : command not found : %s\n",argv[0]);
+									freeArgs(argc,argv);
+									return EXEC_FAILURE;
 									break;
 								default :
-									;
+									argc = getcmd(&argv,retVal,&redir,&fileOut,&fileIn,&fileErr,&wait);
+									close(tube[1]);
+									if(dup2(tube[0],STDIN_FILENO) == -1){
+										perror("Unable to redirect ");
+										exit(DUP_FAILURE);
+									}
+									execvp(argv[0],argv);
+									fprintf(stderr,"ttsh : command not found : %s\n",argv[0]);
+									freeArgs(argc,argv);
 							}
 							break;
 					}
-					execvp(argv[0],argv);
-					fprintf(stderr,"ttsh : command not found : %s\n",argv[0]);
-					freeArgs(argc,argv);
-					return EXEC_FAILURE;
+						execvp(argv[0],argv);
+						fprintf(stderr,"ttsh : command not found : %s\n",argv[0]);
+						freeArgs(argc,argv);
+						return EXEC_FAILURE;
 					break;
 				default :
-					redir = 0;
+					if(redir == REDIRECT_PIPE){
+						argc = getcmd(&argv,retVal,&redir,&fileOut,&fileIn,&fileErr,&wait);
+
+					}
+					redir = REDIRECT_NONE;
 					if(wait == WAIT){
 						waitpid(pid,&son_status,0);
 						retVal = WEXITSTATUS(son_status);
