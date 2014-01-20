@@ -34,7 +34,7 @@ void prompt(int retVal){
 	char promptSeparator,hostname[40];
 	if(!getuid()) promptSeparator = '#'; else promptSeparator = '$';
 	gethostname(hostname,40);
-	printf("[%d] %s@%s:%s %c ",retVal,getenv("USER"),hostname,getenv("PWD"),promptSeparator);
+	printf("\x1b[31;1m[%d] %s@%s:%s %c\x1b[39;0m ",retVal,getenv("USER"),hostname,getenv("PWD"),promptSeparator);
 }
 
 int getcmd(char *** ret,int retVal,int *redir,char **fileOut,char **fileIn,char **fileErr, int *wait){
